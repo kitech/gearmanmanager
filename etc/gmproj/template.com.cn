@@ -1,0 +1,52 @@
+
+;;;;;; should be ini file format
+
+KTSRV_CACHE_DIR =       /SINA/CACHE/sina-cache/newbbs.kitech.com.cn/
+KTSRV_DATA_DIR  =      /SINA/CACHE/sina-data/newbbs.kitech.com.cn/
+
+KTSRV_MEMCACHED_SERVERS = "10.207.0.202:11211"
+KTSRV_MEMCACHED_KEY_PREFIX = "newbbs.kitech.com.cn"
+
+KTSRV_RSYNC_SERVER = "10.207.0.218"
+KTSRV_RSYNC_MODULES = "static_kitech.com.cn"
+KTSRV_ADMIN_SERVER = "admin.newbbs.kitech.com.cn"
+KTSRV_RESOURCE_URL = "http://static.kitech.com.cn"
+KTSRV_DIST_URL = "http://10.207.0.218:8080/publish"
+
+
+KTSRV_REDIS_HOST_PORT = "10.207.26.253:6379 10.207.26.252:6379"
+KTSRV_REDIS_HOST_PORT_R = ""
+;;KTSRV_NUTCRACKER_HOST_PORT =  "9.207.26.253:6379 10.207.26.252:6379"
+KTSRV_NUTCRACKER_HOST_PORT  = "127.0.0.1:22121"
+KTSRV_GEARMAN_HOST_PORT = "10.207.0.201:4730"
+
+
+;;KTSRV_DB_HOST    =     10.207.26.253
+;;KTSRV_DB_PORT     =    3317
+;;KTSRV_DB_USER      =   mysql
+;;KTSRV_DB_PASS       =  "ComeOn*@!)"
+;;KTSRV_DB_NAME      =   newbbs_kitech.com.cn
+;;KTSRV_DB_HOST_R    =   10.207.26.253
+;;KTSRV_DB_PORT_R    =   3317
+;;KTSRV_DB_USER_R    =   mysql
+;;KTSRV_DB_PASS_R    =   "ComeOn*@!)"
+;;KTSRV_DB_NAME_R    =   newbbs_kitech.com.cn
+
+;;;;;;;;;; 分库信息
+KTSRV_DBS_USER    =   "mysql"
+KTSRV_DBS_PASS     =  "ComeOn*@!)"
+KTSRV_DBS_NAME     =  "newbbs_kitech.com.cn"
+
+;; core
+KTSRV_DB1_HOST_PORT  =       "10.207.26.253:3317"
+KTSRV_DB1_HOST_PORT_R  =       "10.207.26.253:3317"
+;; admin
+KTSRV_DB2_HOST_PORT     =    "10.207.26.253:3316"
+KTSRV_DB2_HOST_PORT_R    =     "10.207.26.253:3316"
+;; shard 1
+KTSRV_DB3_HOST_PORT  =       "10.207.26.252:3316"
+KTSRV_DB3_HOST_PORT_R  =       "10.207.26.252:3316"
+;; shard 2
+KTSRV_DB4_HOST_PORT     =    "10.207.26.252:3317"
+KTSRV_DB4_HOST_PORT_R    =     "10.207.26.252:3317"
+
