@@ -1,8 +1,8 @@
 
 ;;;;;; should be ini file format
 
-KTSRV_CACHE_DIR =       /SINA/CACHE/sina-cache/newbbs.kitech.com.cn/
-KTSRV_DATA_DIR  =      /SINA/CACHE/sina-data/newbbs.kitech.com.cn/
+KTSRV_CACHE_DIR =       /SINA/CACHE/kit-cache/newbbs.kitech.com.cn/
+KTSRV_DATA_DIR  =      /SINA/CACHE/kit-data/newbbs.kitech.com.cn/
 
 KTSRV_MEMCACHED_SERVERS = "10.207.0.202:11211"
 KTSRV_MEMCACHED_KEY_PREFIX = "newbbs.kitech.com.cn"
