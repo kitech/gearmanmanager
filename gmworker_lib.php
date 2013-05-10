@@ -322,7 +322,7 @@ class GearmanWorkerManager
      * @status production
      *
      */
-    public static function gmw_route_worker($job)
+    public static function gmw_route_worker(&$job)
     {
         GearmanWorkerManager::_log("herele");
         $func_name = $job->functionName();
@@ -344,6 +344,21 @@ class GearmanWorkerManager
 
             $etime = microtime(true);
             $dtime = $etime - $btime;
+
+            // worker处理用时信息
+            if ($tret && is_array($tret)) {
+                $tret['btime'] = $btime;
+                $tret['etime'] = $etime;
+                $tret['dtime'] = $dtime;
+            }
+            $xtret = json_decode($tret, true);
+            if ($xtret && is_array($xtret)) {
+                $xtret['btime'] = $btime;
+                $xtret['etime'] = $etime;
+                $xtret['dtime'] = $dtime;
+                // $tret = json_encode($xtret, JSON_UNESCAPED_UNICODE);
+            }
+
             GearmanWorkerManager::_log("run code use time:" . $dtime . ($tret?'OK':'error'));
             $bret = self::store_worker_result($job, $tret, $btime, $etime);
             GearmanWorkerManager::_log("storage code :" . ($tret?'OK':'error'));
@@ -351,9 +366,13 @@ class GearmanWorkerManager
             if (!$tret) {
                 $success = false;
             }
+
             GearmanWorkerManager::access($func_name, $success, microtime(true) - $btime);
-            GearmanWorkerManager::_log("worker run done:" . $tret);
-            return is_string($tret) ? $tret : json_encode($tret);
+            GearmanWorkerManager::_log("worker run done:" . $tret, $xtret);
+            return is_string($tret) ? $tret : json_encode($tret, JSON_UNESCAPED_UNICODE);
+        } catch(GearmanException $e) {
+            GearmanWorkerManager::_log('worker excpetioned.' . var_export($e, true));
+            $success = false;
         } catch(Exception $e) {
             GearmanWorkerManager::_log('worker excpetioned.' . var_export($e, true));
             $success = false;
@@ -371,7 +390,7 @@ class GearmanWorkerManager
     {
         $wrapper_function_name = $this->_worker_func_wrapper_prefix. '_' . $func_name;
         $func_code = "
-                     function {$wrapper_function_name}(\$job) {
+                     function {$wrapper_function_name}(&\$job) {
                          \$success = true;
                          \$btime = microtime(true);
                          try {
@@ -433,7 +452,7 @@ class GearmanWorkerManager
         // 这个函数名以后就不需要运行动态修改了
         $wrapper_function_name = $this->_worker_func_wrapper_prefix. '_' . $func_name;
         $func_code = "
-                     function {$wrapper_function_name}(\$job) {
+                     function {$wrapper_function_name}(&\$job) {
                          GearmanWorkerManager::_log('wrapper level 1 function');
                          \$res = GearmanWorkerManager::gmw_route_worker(\$job);
                          GearmanWorkerManager::_log('wrapper level 1 function 222');
@@ -1087,12 +1106,12 @@ class GearmanWorkerManager
      * 存储异步任务的结果到队列中，供前端查询
      * 存储位置，memcache
      * 这个必须包含失效时间，否则，在客户端不关心结果的时候，可能保留无用数据
-     * 存储的执行结果key格式：$job_unique + '_result';
+     * 存储的执行结果key格式：'gmjob_' + $job_unique + '_result';
      * 存储的执行结果value格式：json_encode(array('result'=>$result, 'ctime'=>'begin run time', 'dtime' => 'used time', 'node'=>'run node'));
      * 结构存储过期设置为 7 天
      * memcache server指定问题：
      */
-    public static function store_worker_result($job, $result, $ctime = 0, $dtime = 0)
+    public static function store_worker_result($job, $result, $btime = 0, $etime = 0)
     {
         // $servers = '10.207.26.251:11211,10.207.26.251:11211'; // for simple test on test machine
         $servers = self::$_memcache_servers;
@@ -1103,24 +1122,32 @@ class GearmanWorkerManager
             $pdomain = 'aaaaaaaaaaaaaa';
             if (isset(self::$_proj_envs[$pdomain])) {
                 $envs = self::$_proj_envs[$pdomain];
-                if (isset($envs['SINASRV_MEMCACHED_SERVERS'])) {
-                    $this->_log('domain env: ' . $envs['SINASRV_MEMCACHED_SERVERS']);
-                    $servers = array_merge($servers, explode(',', $envs['SINASRV_MEMCACHED_SERVERS']));
+                if (isset($envs['kitech.com.cn_MEMCACHED_SERVERS'])) {
+                    $this->_log('domain env: ' . $envs['kitech.com.cn_MEMCACHED_SERVERS']);
+                    $servers = array_merge($servers, explode(',', $envs['kitech.com.cn_MEMCACHED_SERVERS']));
                 }
             }
         }
 
 
         // 打包存储结果
+        global $g_workerman;
         $prefixs = self::get_node_prefixes();
         $wukey = $job->unique();
+        $wukey = $wukey ? $wukey : uniqid();
         $mckey = $wukey . '_result';
 
         $wrapped_result = array('result' => $result,
-                                'ctime' => $ctime,
-                                'dtime' => $dtime,
+                                'btime' => $btime,
+                                'etime' => $etime,
+                                'dtime' => ($etime - $btime),
+                                'func' => $job->functionName(),
+                                'params' => json_decode($job->workload(), true),
+                                'raw_params' => $job->workload(),
+                                'handle' => $job->handle(),
+                                'nindex' => $g_workerman->getProcIndex(),
                                 'node' => $prefixs[0] . '_' . posix_getpid());
-        $jresult = json_encode($wrapped_result);
+        $jresult = json_encode($wrapped_result, JSON_UNESCAPED_UNICODE);
 
         // 存储到memcache中
         $expire = self::$_memres_expire;
@@ -1145,6 +1172,51 @@ class GearmanWorkerManager
 
 
         return true;
+    }
+
+    public static function get_worker_result($gmuid)
+    {
+        $servers = self::$_memcache_servers;
+        $servers = explode(',', $servers);
+
+        // TODO 如果能拿到项目的配置memcache_servers信息，在向项目的memcache写一份
+        if (!empty(self::$_proj_envs)) {
+            $pdomain = 'aaaaaaaaaaaaaa';
+            if (isset(self::$_proj_envs[$pdomain])) {
+                $envs = self::$_proj_envs[$pdomain];
+                if (isset($envs['kitech.com.cn_MEMCACHED_SERVERS'])) {
+                    $this->_log('domain env: ' . $envs['kitech.com.cn_MEMCACHED_SERVERS']);
+                    $servers = array_merge($servers, explode(',', $envs['kitech.com.cn_MEMCACHED_SERVERS']));
+                }
+            }
+        }
+
+        // 从memcache中取job的
+        $cbh = new Memcache();
+        $expire = self::$_memres_expire;
+        foreach ($servers as $idx => $server) {
+            $srvp = explode(':', $server);
+            if (count($srvp) == 1) {
+                $srvp[1] = 11211;
+            }
+
+
+            $cbh->addServer($srvp[0], $srvp[1]);
+        }
+
+        if ($cbh) {
+            $mckey = $gmuid . '_result';
+            $bret = $cbh->get($mckey);
+            $cbh->close();
+            $cbh = null;
+        }
+
+        return $bret;
+    }
+
+    public function getProcIndex()
+    {
+        return $this->_proc_index;
     }
 
     private function _get_memory_size()
@@ -1200,8 +1272,10 @@ class GearmanWorkerManager
         return true;
     }
 
-    public static function _log($str)
+    public static function _log($str, $obj = null)
     {
+        $ntime = date('Y-m-d H:i:s');
+
         $trace = debug_backtrace(false);
         if (isset($trace[1])) {
             $caller = isset($trace[1]['class']) ? 
@@ -1217,7 +1291,7 @@ class GearmanWorkerManager
             $caller = "Global scope: {$trace[0]['file']}:{$trace[0]['line']}";
         }
 
-        $ntime = date('Y-m-d H:i:s');
-        echo "I: [${ntime}] [{$caller}] {$str}.\n";
+        $ostr = $obj ? var_export($obj, true) : '';
+        echo "I: [${ntime}] [{$caller}] {$str}; {$ostr}.\n";
     }
 };

@@ -29,7 +29,7 @@ class Plugin_Rsync
             $this->_servers = $server;
         } else {
             //$this->_servers = array('60.28.113.142');
-            $this->_servers = array($_SERVER['SINASRV_RSYNC_SERVER']);
+            $this->_servers = array($_SERVER['kitech.com.cn_RSYNC_SERVER']);
         }
 
         //module处理

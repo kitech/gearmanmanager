@@ -66,23 +66,41 @@ $_function = function ($job) use (&$g_workerman)
         return $json_result;
     }
 
-    $run_action_main_code = "
-        <?php
+    $run_action_main_code = 
+        "<?php
+            ini_set('display_errors', 'On');
+            error_reporting(E_ALL);
+            define('_DEV_', false);
+            define('_DEBUG_', false);
+            
             if (file_exists(\"{$proj_doc_root}/config/consoleinit.php\")) {
                 require_once(\"{$proj_doc_root}/config/consoleinit.php\");
             }
+            define('_CLI_', true);
+            \$_SERVER['argv'] = \$argv;
+            \$_SERVER['argc'] = \$argc;
             \$envs = parse_ini_file(\"{$env_conf_file}\");
             foreach (\$envs as \$ek => \$ev) { \$_SERVER[\$ek] = \$ev; \$_ENV[\$ek] = \$ev; }
+            // print_r(\$_SERVER);
             
             require_once(\"{$proj_doc_root}/framework/loader.php\");
             Leb_Loader::setAutoload();
+
+            if (file_exists(\"{$proj_doc_root}/command/CLICommand.php\")) {
+                 require_once(\"{$proj_doc_root}/command/CLICommand.php\");
+            }
+
             \$controller = Leb_Controller::getInstance(true);
             \$aret = \$controller->run()->getReturn();
             // var_dump(\$aret);
-            echo \"\\r\\n\\r\\n\"; // output and json_result seperator
+            // var_dump('ob_level, ob_length', ob_get_level(), ob_get_length());
+            echo \"__END_PRINT_OUTPUT__\"; // output and json_result seperator
             if (\$aret != null) { echo json_encode(\$aret, JSON_UNESCAPED_UNICODE); }
     ";
 
+    /**
+     * @status expired
+     */
     $run_action_main_func = function ($proj_doc_root, $result_file) {
         ob_start();
         
@@ -97,7 +115,7 @@ $_function = function ($job) use (&$g_workerman)
 
         $raw_output = ob_get_clean();
 
-        $bret = file_put_contents($result_file, $raw_output . "\r\n\r\n" . $jaret);
+        $bret = file_put_contents($result_file, $raw_output . "__END_PRINT_OUTPUT__" . $jaret);
 
         return $jaret;
     };
@@ -135,13 +153,13 @@ $_function = function ($job) use (&$g_workerman)
 
     /////// exec启动新进程方式
     if (1) {
-        $script_file = tempnam('/dev/shm/', 'run_command_action_cmd_'). '.php';
+        $script_file = '/dev/shm/run_command_action_cmd_' . date('Y-m-d_H-i-s_') . uniqid() . '.php';
         file_put_contents($script_file, $run_action_main_code);
 
         $mypid = posix_getpid();
         $php_exe = "/proc/{$mypid}/exe";
 
-        $full_cmd = "{$php_exe} {$script_file} {$action} {$controller} {$app} ";
+        $full_cmd = "{$php_exe} -f {$script_file} {$action} {$controller} {$app} ";
         if (!empty($params)) {
             $option_paris = array();
             foreach($params as $key => $value) {
@@ -154,14 +172,13 @@ $_function = function ($job) use (&$g_workerman)
 
         $last_line = exec($full_cmd, $raw_output, $rvar);
         unlink($script_file);
-
     }
 
     // 解析action的所有输出结果。
     $raw_output = implode("\n", $raw_output);
-    $pos = strrpos($raw_output, "\r\n\r\n");
+    $pos = strrpos($raw_output, "__END_PRINT_OUTPUT__");
     $action_output = substr($raw_output, 0, $pos);
-    $result_json_output = substr($raw_output, $pos + 4);
+    $result_json_output = substr($raw_output, $pos + 20);
     $result = array('success' => false,
                     'cmd_line' => $full_cmd,
                     'retval' => $rvar,

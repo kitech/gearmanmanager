@@ -24,7 +24,7 @@ class CrontabImpl
   private $event_file_dir = '';
   private $event_file_prefix = 'gmcron_event_args_';
   private $event_file_path = '';
-  private $php_cmd = '/usr/local/sinasrv2/bin/php /usr/local/php/bin/php';
+  private $php_cmd = '/usr/local/kitech.com.cn2/bin/php /usr/local/php/bin/php';
   
   private $hcron = null;
 
